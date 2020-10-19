@@ -1,0 +1,20 @@
+[package]
+name = "minusbot"
+version = "0.1.0"
+authors = ["MinusKelvin <mark.carlson@minuskelvin.net>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+regex = "1.4.1"
+fumen = "0.1.1"
+lazy_static = "1.4.0"
+gif = "0.11.1"
+tokio = { version = "0.2", features = ["macros"] }
+libtetris = { git = "https://github.com/MinusKelvin/cold-clear" }
+reqwest = "0.10.8"
+
+[dependencies.serenity]
+version = "0.9.0-rc.2"
+features = ["framework", "standard_framework"]
