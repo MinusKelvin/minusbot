@@ -8,8 +8,11 @@ use lazy_static::lazy_static;
 
 #[hook]
 pub async fn normal_message(ctx: &Context, msg: &Message) {
-    if let Some(fumen) = extract_fumen(&msg.content).await {
-        let gif = tokio::task::spawn_blocking(|| render_fumen(fumen)).await.unwrap().unwrap();
+    if let Some((fumen, options)) = extract_fumen(&msg.content).await {
+        let options = options.to_owned();
+        let gif = tokio::task::spawn_blocking(
+            move || render_fumen(fumen, &options)
+        ).await.unwrap().unwrap();
         msg.channel_id.send_files(&ctx.http, vec![AttachmentType::Bytes {
             data: gif.into(),
             filename: "fumen.gif".into()
@@ -17,23 +20,27 @@ pub async fn normal_message(ctx: &Context, msg: &Message) {
     }
 }
 
-async fn extract_fumen(text: &str) -> Option<Fumen> {
+async fn extract_fumen(text: &str) -> Option<(Fumen, &str)> {
     lazy_static! {
-        static ref FUMEN_DATA: Regex = Regex::new(r"v115@[^ ]+").unwrap();
-        static ref TINYURL: Regex = Regex::new(r"(https?://)?tinyurl.com/[0-9a-zA-Z\-]+").unwrap();
+        static ref FUMEN_DATA: Regex = Regex::new(r"(v115@[a-zA-Z0-9+/?]+)(#[^ ]+)?").unwrap();
+        static ref TINYURL: Regex = Regex::new(
+            r"((?:https?://)?tinyurl.com/[0-9a-zA-Z\-]+)(#[^ ]+)?"
+        ).unwrap();
     }
 
-    if let Some(data) = FUMEN_DATA.find(text) {
-        println!("Found fumen {}", data.as_str());
-        Fumen::decode(data.as_str()).map_err(|e| {
+    if let Some(caps) = FUMEN_DATA.captures(text) {
+        let data = caps.get(1).unwrap().as_str();
+        println!("Found fumen {}", data);
+        Fumen::decode(data).map_err(|e| {
             println!("Failed to decode fumen: {}", e);
             e
-        }).ok()
-    } else if let Some(url) = TINYURL.find(text) {
-        let url = if url.as_str().starts_with("http") {
-            url.as_str().to_string()
+        }).ok().map(|f| (f, caps.get(2).map(|m| m.as_str()).unwrap_or("")))
+    } else if let Some(caps) = TINYURL.captures(text) {
+        let url = caps.get(1).unwrap().as_str();
+        let url = if url.starts_with("http") {
+            url.to_string()
         } else {
-            "https://".to_string() + url.as_str()
+            "https://".to_string() + url
         };
         let response = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -42,17 +49,25 @@ async fn extract_fumen(text: &str) -> Option<Fumen> {
             .send().await.ok()?;
         let target = response.headers().get("Location")?;
         println!("Found fumen {} in tinyurl", target.to_str().unwrap());
-        FUMEN_DATA.find(target.to_str().ok()?)
-            .and_then(|data| Fumen::decode(data.as_str()).map_err(|e| {
-                println!("Failed to decode fumen: {}", e);
-                e
-            }).ok())
+        FUMEN_DATA.captures(target.to_str().ok()?)
+            .and_then(|caps| Fumen::decode(caps.get(1).unwrap().as_str())
+                .map_err(|e| {
+                    println!("Failed to decode fumen: {}", e);
+                    e
+                }).ok()
+            ).map(|f| (f, caps.get(2).map(|m| m.as_str()).unwrap_or("")))
     } else {
         None
     }
 }
 
-fn render_fumen(fumen: Fumen) -> Result<Vec<u8>, gif::EncodingError> {
+fn render_fumen(fumen: Fumen, options: &str) -> Result<Vec<u8>, gif::EncodingError> {
+    lazy_static! {
+        static ref EXTRACT_OPTIONS: Regex = Regex::new(
+            r"([\w._]+)=([\w._]+)"
+        ).unwrap();
+    }
+
     const GLOBAL_PALETTE: &'static [u8] = &[
         0x40, 0x40, 0x40,
         0x00, 0xFF, 0xFF,
@@ -65,7 +80,19 @@ fn render_fumen(fumen: Fumen) -> Result<Vec<u8>, gif::EncodingError> {
         0x80, 0x80, 0x80,
         0x10, 0x10, 0x10
     ];
-    const BLOCK_SIZE: usize = 16;
+    const BLOCK_SIZE: usize = 24;
+
+    let mut speed = 1.0f64;
+    for caps in EXTRACT_OPTIONS.captures_iter(options) {
+        let key = caps.get(1).unwrap().as_str();
+        let value = caps.get(2).unwrap().as_str();
+        match key {
+            "speed" => if let Ok(s) = value.parse() {
+                speed = s;
+            }
+            _ => {}
+        }
+    }
 
     let has_garbage_row = fumen.pages.iter()
         .any(|p| p.garbage_row != [fumen::CellColor::Empty; 10]);
@@ -126,8 +153,8 @@ fn render_fumen(fumen: Fumen) -> Result<Vec<u8>, gif::EncodingError> {
             }
         }
         writer.write_frame(&gif::Frame {
-            delay: 100,
-            width: 160,
+            delay: (50.0 / speed).round() as u16,
+            width: BLOCK_SIZE as u16 * 10,
             height: gif_height as u16,
             buffer: buf.into(),
             ..Default::default()
