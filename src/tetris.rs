@@ -24,7 +24,11 @@ async fn extract_fumen(text: &str) -> Option<Fumen> {
     }
 
     if let Some(data) = FUMEN_DATA.find(text) {
-        Fumen::decode(data.as_str()).ok()
+        println!("Found fumen {}", data.as_str());
+        Fumen::decode(data.as_str()).map_err(|e| {
+            println!("Failed to decode fumen: {}", e);
+            e
+        }).ok()
     } else if let Some(url) = TINYURL.find(text) {
         let url = if url.as_str().starts_with("http") {
             url.as_str().to_string()
@@ -37,8 +41,12 @@ async fn extract_fumen(text: &str) -> Option<Fumen> {
             .get(&url)
             .send().await.ok()?;
         let target = response.headers().get("Location")?;
+        println!("Found fumen {} in tinyurl", target.to_str().unwrap());
         FUMEN_DATA.find(target.to_str().ok()?)
-            .and_then(|data| Fumen::decode(data.as_str()).ok())
+            .and_then(|data| Fumen::decode(data.as_str()).map_err(|e| {
+                println!("Failed to decode fumen: {}", e);
+                e
+            }).ok())
     } else {
         None
     }
@@ -127,6 +135,8 @@ fn render_fumen(fumen: Fumen) -> Result<Vec<u8>, gif::EncodingError> {
     }
 
     drop(writer);
+
+    println!("gif is {} bytes large", gif_data.len());
 
     Ok(gif_data)
 }

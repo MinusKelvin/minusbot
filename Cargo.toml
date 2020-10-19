@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 regex = "1.4.1"
-fumen = "0.1.1"
+fumen = "0.1.2"
 lazy_static = "1.4.0"
 gif = "0.11.1"
 tokio = { version = "0.2", features = ["macros"] }

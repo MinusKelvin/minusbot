@@ -348,9 +348,9 @@ checksum = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
 
 [[package]]
 name = "fumen"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6e7908ad856c82fd0da2782cf20aceceb295f4ba476186b284a62ecfe983e45"
+checksum = "ae2f2ce743f92bfe03f12f73731e39ac8b525a2f4044db2f098c224442c65ab1"
 
 [[package]]
 name = "futures"
