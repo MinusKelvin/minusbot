@@ -1,13 +1,113 @@
 use serenity::prelude::*;
-use serenity::framework::standard::macros::{ hook };
+use serenity::framework::standard::macros::{ hook, group, command };
+use serenity::framework::standard::{ CommandResult, Args };
 use serenity::model::channel::Message;
 use serenity::http::AttachmentType;
 use regex::Regex;
 use fumen::Fumen;
 use lazy_static::lazy_static;
+use libtetris::{ Board };
+
+#[group]
+#[commands(cold_clear_analysis)]
+pub struct Tetris;
+
+#[command]
+#[aliases("cc")]
+async fn cold_clear_analysis(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let fumen_data = match args.trimmed().current() {
+        Some(data) => data,
+        None => {
+            msg.channel_id.say(&ctx.http, "Please pass a fumen to analyse").await?;
+            return Ok(())
+        }
+    };
+    let (fumen, options) = match extract_fumen(fumen_data).await {
+        Some(data) => data,
+        None => {
+            msg.channel_id.say(&ctx.http, "Invalid fumen").await?;
+            return Ok(())
+        }
+    };
+    let options = options.to_owned();
+    if fumen.pages.len() != 1 {
+        msg.channel_id.say(&ctx.http, "Fumen should have 1 page and a queue comment.").await?;
+        return Ok(())
+    }
+    let page = &fumen.pages[0];
+    lazy_static! {
+        static ref QUEUE_SELECTOR: Regex = Regex::new(
+            r"^#Q=\[([IOTJLSZ]?)\]\(([IOTJLSZ])\)([IOTJLSZ]*)$"
+        ).unwrap();
+    }
+    if let Some(caps) = page.comment.as_ref().and_then(|c| QUEUE_SELECTOR.captures(c)) {
+        let hold = caps.get(1).unwrap();
+        let hold = hold.as_str().chars().next().and_then(from_char);
+        let current = caps.get(2).unwrap();
+        let next = caps.get(3).unwrap();
+        let mut field = [[false; 10]; 40];
+        for y in 0..23 {
+            for x in 0..10 {
+                field[y][x] = page.field[y][x] != fumen::CellColor::Empty;
+            }
+        }
+        let mut board = Board::new_with_state(field, Default::default(), hold, false, 0);
+        board.add_next_piece(current.as_str().chars().next().and_then(from_char).unwrap());
+        for c in next.as_str().chars() {
+            board.add_next_piece(from_char(c).unwrap());
+        }
+
+        let count = (board.next_queue().count() + (hold.is_some() as usize) - 1).min(40);
+
+        msg.channel_id.broadcast_typing(&ctx.http).await?;
+
+        println!("Running Cold Clear...");
+
+        let cc = cold_clear::Interface::launch(board, cold_clear::Options {
+            speculate: false,
+            pcloop: false,
+            ..Default::default()
+        }, cold_clear::evaluation::Standard::default(), None);
+
+        let mut fumen = Fumen::default();
+        let first_page = fumen.add_page();
+        first_page.field = page.field;
+
+        for _ in 0..count {
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+            cc.request_next_move(0);
+            tokio::task::yield_now().await;
+            if let Some((mv, info)) = cc.block_next_move() {
+                let page = fumen.add_page();
+                page.piece = Some(to_fumen(mv.expected_location));
+                if let cold_clear::Info::Normal(info) = info {
+                    page.comment = Some(format!("{}n, {}d", info.nodes, info.depth));
+                }
+            } else {
+                break;
+            }
+        }
+
+        let gif = tokio::task::spawn_blocking(
+            move || render_fumen(fumen, &options)
+        ).await.unwrap().unwrap();
+        msg.channel_id.send_files(&ctx.http, vec![AttachmentType::Bytes {
+            data: gif.into(),
+            filename: "fumen.gif".into()
+        }], |f| f).await.unwrap();
+
+        Ok(())
+    } else {
+        msg.channel_id.say(&ctx.http, "Fumen should have 1 page and a queue comment.").await?;
+        Ok(())
+    }
+}
 
 #[hook]
 pub async fn normal_message(ctx: &Context, msg: &Message) {
+    if msg.content.starts_with('-') {
+        return
+    }
     if let Some((fumen, options)) = extract_fumen(&msg.content).await {
         let options = options.to_owned();
         let gif = tokio::task::spawn_blocking(
@@ -187,5 +287,40 @@ fn to_libtetris(p: fumen::Piece) -> libtetris::FallingPiece {
             fumen::RotationState::East => libtetris::RotationState::East,
             fumen::RotationState::West => libtetris::RotationState::West,
         })
+    }
+}
+
+fn to_fumen(p: libtetris::FallingPiece) -> fumen::Piece {
+    fumen::Piece {
+        x: p.x as u32,
+        y: p.y as u32,
+        kind: match p.kind.0 {
+            libtetris::Piece::I => fumen::PieceType::I,
+            libtetris::Piece::O => fumen::PieceType::O,
+            libtetris::Piece::T => fumen::PieceType::T,
+            libtetris::Piece::S => fumen::PieceType::S,
+            libtetris::Piece::Z => fumen::PieceType::Z,
+            libtetris::Piece::L => fumen::PieceType::L,
+            libtetris::Piece::J => fumen::PieceType::J,
+        },
+        rotation: match p.kind.1 {
+            libtetris::RotationState::North => fumen::RotationState::North,
+            libtetris::RotationState::South => fumen::RotationState::South,
+            libtetris::RotationState::East => fumen::RotationState::East,
+            libtetris::RotationState::West => fumen::RotationState::West,
+        }
+    }
+}
+
+fn from_char(c: char) -> Option<libtetris::Piece> {
+    match c {
+        'I' => Some(libtetris::Piece::I),
+        'O' => Some(libtetris::Piece::O),
+        'T' => Some(libtetris::Piece::T),
+        'L' => Some(libtetris::Piece::L),
+        'J' => Some(libtetris::Piece::J),
+        'S' => Some(libtetris::Piece::S),
+        'Z' => Some(libtetris::Piece::Z),
+        _ => None
     }
 }

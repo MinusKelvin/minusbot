@@ -9,7 +9,8 @@ async fn main() {
         .configure(|c| c
             .prefix("-")
         )
-        .normal_message(tetris::normal_message);
+        .normal_message(tetris::normal_message)
+        .group(&tetris::TETRIS_GROUP);
 
     let mut client = Client::new(std::fs::read_to_string(".token").unwrap().trim())
         .framework(framework)
