@@ -51,6 +51,10 @@ async fn cold_clear_analysis(ctx: &Context, msg: &Message, mut args: Args) -> Co
                 field[y][x] = page.field[y][x] != fumen::CellColor::Empty;
             }
         }
+        if field.iter().any(|&r| r == [true; 10]) {
+            msg.channel_id.say(&ctx.http, "Fumen contains a complete row.").await?;
+            return Ok(())
+        }
         let mut board = Board::new_with_state(field, Default::default(), hold, false, 0);
         board.add_next_piece(current.as_str().chars().next().and_then(from_char).unwrap());
         for c in next.as_str().chars() {
