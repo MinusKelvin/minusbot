@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "cold-clear"
 version = "0.1.0"
-source = "git+https://github.com/MinusKelvin/cold-clear#5825723fef0231cf0158918bff7c1a168d624c12"
+source = "git+https://github.com/MinusKelvin/cold-clear#930333a61e18b5605d5b7504cd4e0f673c8e0206"
 dependencies = [
  "arrayvec 0.4.12",
  "bumpalo",
@@ -795,7 +795,7 @@ checksum = "2448f6066e80e3bfc792e9c98bf705b4b0fc6e8ef5b43e5889aff0eaa9c58743"
 [[package]]
 name = "libtetris"
 version = "0.1.0"
-source = "git+https://github.com/MinusKelvin/cold-clear#5825723fef0231cf0158918bff7c1a168d624c12"
+source = "git+https://github.com/MinusKelvin/cold-clear#930333a61e18b5605d5b7504cd4e0f673c8e0206"
 dependencies = [
  "arrayvec 0.4.12",
  "enum-map",
@@ -1035,7 +1035,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "opening-book"
 version = "0.1.0"
-source = "git+https://github.com/MinusKelvin/cold-clear#5825723fef0231cf0158918bff7c1a168d624c12"
+source = "git+https://github.com/MinusKelvin/cold-clear#930333a61e18b5605d5b7504cd4e0f673c8e0206"
 dependencies = [
  "arrayvec 0.5.1",
  "bincode",
