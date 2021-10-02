@@ -69,7 +69,7 @@ async fn cold_clear_analysis(ctx: &Context, msg: &Message, mut args: Args) -> Co
 
         let cc = cold_clear::Interface::launch(board, cold_clear::Options {
             speculate: false,
-            pcloop: false,
+            pcloop: None,
             ..Default::default()
         }, cold_clear::evaluation::Standard::default(), None);
 
@@ -78,10 +78,11 @@ async fn cold_clear_analysis(ctx: &Context, msg: &Message, mut args: Args) -> Co
         first_page.field = page.field;
 
         for _ in 0..count {
-            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
-            cc.request_next_move(0);
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            cc.suggest_next_move(0);
             tokio::task::yield_now().await;
             if let Some((mv, info)) = cc.block_next_move() {
+                cc.play_next_move(mv.expected_location);
                 let page = fumen.add_page();
                 page.piece = Some(to_fumen(mv.expected_location));
                 if let cold_clear::Info::Normal(info) = info {

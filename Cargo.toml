@@ -11,11 +11,11 @@ regex = "1.4.1"
 fumen = "0.1.2"
 lazy_static = "1.4.0"
 gif = "0.11.1"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "1.12", features = ["macros", "fs", "rt-multi-thread"] }
 libtetris = { git = "https://github.com/MinusKelvin/cold-clear" }
 cold-clear = { git = "https://github.com/MinusKelvin/cold-clear" }
 reqwest = "0.10.8"
+chrono = "0.4.19"
 
 [dependencies.serenity]
-version = "0.9.0-rc.2"
-features = ["framework", "standard_framework"]
+version = "0.10.9"

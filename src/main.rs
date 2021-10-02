@@ -2,6 +2,7 @@ use serenity::prelude::*;
 use serenity::framework::standard::{ StandardFramework };
 
 mod tetris;
+mod logger;
 
 #[tokio::main]
 async fn main() {
@@ -12,8 +13,9 @@ async fn main() {
         .normal_message(tetris::normal_message)
         .group(&tetris::TETRIS_GROUP);
 
-    let mut client = Client::new(std::fs::read_to_string(".token").unwrap().trim())
+    let mut client = Client::builder(std::fs::read_to_string(".token").unwrap().trim())
         .framework(framework)
+        .event_handler(logger::Logger::new())
         .await
         .unwrap();
     
