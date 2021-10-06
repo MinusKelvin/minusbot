@@ -79,6 +79,16 @@ impl EventHandler for Logger {
                 escape(&message.content)
             )?;
 
+            for attachment in message.attachments {
+                writeln!(
+                    &mut data,
+                    "ATTACHED {} ({}): {}",
+                    attachment.content_type.as_deref().unwrap_or("unknown"),
+                    escape(&attachment.filename),
+                    attachment.url
+                )?;
+            }
+
             let mut log = self.get_log_file(&ctx, message.channel_id).await?;
             log.write_all(data.as_bytes()).await?;
             Ok(())
