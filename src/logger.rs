@@ -231,18 +231,9 @@ fn escape(name: &str) -> String {
     result
 }
 
-static URL_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"https?://((?:\w+\.)\w+)").unwrap()
-});
 static NITRO_PATTERN: Lazy<Regex> = Lazy::new(|| {
     RegexBuilder::new(r"\bnitro\b").case_insensitive(true).build().unwrap()
 });
-const ALLOWED_DOMAINS: &[&str] = &[
-    "discord.com",
-    "discord.gg",
-    "discordapp.com",
-    "discordapp.net",
-];
 
 async fn is_nitro_scam(content: &str) -> bool {
     if !content.contains("@everyone") {
@@ -250,14 +241,6 @@ async fn is_nitro_scam(content: &str) -> bool {
     }
     if !NITRO_PATTERN.is_match(content) {
         return false
-    }
-    if let Some(domain) = URL_PATTERN.captures(content).and_then(|caps| caps.get(1)) {
-        if !domain.as_str().contains("discord") {
-            return false;
-        }
-        if ALLOWED_DOMAINS.contains(&domain.as_str()) {
-            return false;
-        }
     }
     true
 }
