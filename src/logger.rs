@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
+use once_cell::sync::Lazy;
+use regex::{Regex, RegexBuilder};
 use serenity::model::channel::{Channel, Message};
 use serenity::model::guild::Member;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
@@ -68,10 +70,16 @@ impl Logger {
 impl EventHandler for Logger {
     async fn message(&self, ctx: Context, message: Message) {
         let _: Result<()> = async {
+            let flagged = is_nitro_scam(&message.content).await;
+
             let mut data = String::new();
             writeln!(
                 &mut data,
-                "MESSAGE  &{} <{}> @{} ({}): {}",
+                "MESSAGE {} &{} <{}> @{} ({}): {}",
+                match flagged {
+                    true => "FLAGGED",
+                    false => "",
+                },
                 message.id,
                 message.timestamp.to_rfc3339(),
                 message.author.id,
@@ -91,6 +99,7 @@ impl EventHandler for Logger {
 
             let mut log = self.get_log_file(&ctx, message.channel_id).await?;
             log.write_all(data.as_bytes()).await?;
+
             Ok(())
         }
         .await;
@@ -216,4 +225,35 @@ fn escape(name: &str) -> String {
         }
     }
     result
+}
+
+static URL_PATTERN: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"https?://((?:\w+\.)\w+)").unwrap()
+});
+static NITRO_PATTERN: Lazy<Regex> = Lazy::new(|| {
+    RegexBuilder::new(r"\bnitro\b").case_insensitive(true).build().unwrap()
+});
+const ALLOWED_DOMAINS: &[&str] = &[
+    "discord.com",
+    "discord.gg",
+    "discordapp.com",
+    "discordapp.net",
+];
+
+async fn is_nitro_scam(content: &str) -> bool {
+    if !content.contains("@everyone") {
+        return false;
+    }
+    if !NITRO_PATTERN.is_match(content) {
+        return false
+    }
+    if let Some(domain) = URL_PATTERN.captures(content).and_then(|caps| caps.get(1)) {
+        if !domain.as_str().contains("discord") {
+            return false;
+        }
+        if ALLOWED_DOMAINS.contains(&domain.as_str()) {
+            return false;
+        }
+    }
+    true
 }

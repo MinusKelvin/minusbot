@@ -968,6 +968,7 @@ dependencies = [
  "gif",
  "lazy_static",
  "libtetris",
+ "once_cell",
  "regex",
  "reqwest 0.10.10",
  "serenity",
