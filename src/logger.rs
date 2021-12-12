@@ -102,6 +102,9 @@ impl EventHandler for Logger {
 
             if flagged {
                 message.delete(&ctx).await?;
+                if let Some(guild_id) = message.guild_id {
+                    guild_id.kick(&ctx, message.author).await?;
+                }
             }
 
             Ok(())
@@ -231,16 +234,18 @@ fn escape(name: &str) -> String {
     result
 }
 
-static NITRO_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    RegexBuilder::new(r"\bnitro\b").case_insensitive(true).build().unwrap()
-});
+static LINKLIKE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"https?://").unwrap());
+static FLAG_WORDS: &[&str] = &["@everyone", "free", "steam", "airdrop"];
 
 async fn is_nitro_scam(content: &str) -> bool {
-    if !content.contains("@everyone") {
-        return false;
+    let lowercase = content.to_lowercase();
+    if !lowercase.contains("nitro") {
+        false
+    } else if !LINKLIKE_PATTERN.is_match(&lowercase) {
+        false
+    } else if FLAG_WORDS.iter().any(|s| lowercase.contains(s)) {
+        true
+    } else {
+        false
     }
-    if !NITRO_PATTERN.is_match(content) {
-        return false
-    }
-    true
 }
