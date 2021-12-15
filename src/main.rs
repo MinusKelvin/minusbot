@@ -68,7 +68,7 @@ struct Config {
 
 #[group]
 #[only_in(guilds)]
-#[owners_only]
+#[required_permissions(ADMINISTRATOR)]
 #[commands(set_muted_role, set_admin_channel)]
 pub struct Configuration;
 
