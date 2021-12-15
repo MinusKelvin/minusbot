@@ -4,7 +4,7 @@ use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
 use once_cell::sync::Lazy;
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 use serenity::model::channel::{Channel, Message};
 use serenity::model::guild::Member;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
@@ -103,7 +103,13 @@ impl EventHandler for Logger {
             if flagged {
                 message.delete(&ctx).await?;
                 if let Some(guild_id) = message.guild_id {
-                    guild_id.kick(&ctx, message.author).await?;
+                    let config = super::config(guild_id).await;
+                    let mut member = guild_id.member(&ctx, message.author.id).await?;
+                    member.add_role(&ctx, config.muted_role).await?;
+                    config
+                        .admin_channel
+                        .say(&ctx, format!("Muted {} for nitro scam", message.author))
+                        .await?;
                 }
             }
 
